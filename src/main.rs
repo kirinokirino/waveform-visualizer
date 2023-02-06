@@ -1,5 +1,5 @@
-#[warn(clippy::nursery, clippy::pedantic)]
-use speedy2d;
+#![warn(clippy::nursery, clippy::pedantic)]
+#![allow(clippy::cast_precision_loss)]
 use speedy2d::{
     color::Color,
     dimen::{UVec2, Vec2},
@@ -31,7 +31,7 @@ struct App {
 }
 
 impl App {
-    pub fn new(window_size: UVec2) -> Self {
+    pub const fn new(window_size: UVec2) -> Self {
         Self {
             viewport: window_size,
         }
@@ -40,23 +40,19 @@ impl App {
 
 impl WindowHandler for App {
     fn on_draw(&mut self, helper: &mut WindowHelper<()>, graphics: &mut Graphics2D) {
-        let ww = WINDOW_WIDTH as f32;
-        let wh = WINDOW_HEIGHT as f32;
-        let points = 36 * 4;
-
+        let points = (WINDOW_WIDTH / 12) as usize;
         let mut wave: Vec<Vec2> = Vec::with_capacity(points);
         for point in 0..points {
             wave.push(Vec2::new(
-                ww / points as f32 * point as f32,
-                wh / 2.0 + (fastrand::f32() * 100.0) - 50.0,
+                (WINDOW_WIDTH as f32) / points as f32 * point as f32,
+                fastrand::f32().mul_add(100.0, (WINDOW_HEIGHT as f32) / 2.0) - 50.0,
             ));
         }
 
         graphics.clear_screen(Color::from_rgb(0.8, 0.8, 0.8));
-
         for pair in wave.as_slice().windows(2) {
             let (from, to) = (pair[0], pair[1]);
-            graphics.draw_line(from, to, 2.0, Color::BLACK)
+            graphics.draw_line(from, to, 2.0, Color::BLACK);
         }
 
         std::thread::sleep(std::time::Duration::from_millis(60));
@@ -65,10 +61,6 @@ impl WindowHandler for App {
 
     fn on_resize(&mut self, _helper: &mut WindowHelper<()>, size_pixels: UVec2) {
         self.viewport = size_pixels;
-    }
-
-    fn on_mouse_move(&mut self, _helper: &mut WindowHelper<()>, position: Vec2) {
-        //self.mouse_pos = position;
     }
 
     fn on_key_down(
