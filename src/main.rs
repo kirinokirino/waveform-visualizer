@@ -49,37 +49,13 @@ impl App {
 
 impl WindowHandler for App {
     fn on_draw(&mut self, helper: &mut WindowHelper<()>, graphics: &mut Graphics2D) {
-        let segment = if self.segment > 0 {
-            self.segment as usize
+        graphics.clear_screen(Color::from_rgb(0.8, 0.8, 0.8));
+        let segment: usize = if self.segment > 0 {
+            self.segment.try_into().unwrap()
         } else {
             0
         };
-        let segment_size = self.audio.meta.sample_rate as usize / 4;
-        let slice = segment_size * segment;
-        let wave: Vec<Vec2> = self
-            .audio
-            .buffer
-            .iter()
-            .skip(slice)
-            .take(segment_size)
-            .enumerate()
-            .map(|(i, sample)| {
-                Vec2::new(
-                    WINDOW_WIDTH as f32 / 512.0 * i as f32,
-                    f32::from(*sample).mul_add(
-                        (WINDOW_HEIGHT as f32 * 0.5) / f32::from(i16::MAX),
-                        WINDOW_HEIGHT as f32 / 2.0,
-                    ),
-                )
-            })
-            .collect();
-
-        graphics.clear_screen(Color::from_rgb(0.8, 0.8, 0.8));
-        for pair in wave.as_slice().windows(2) {
-            let (from, to) = (pair[0], pair[1]);
-            graphics.draw_line(from, to, 2.0, Color::BLACK);
-        }
-
+        self.audio.draw(graphics, segment);
         std::thread::sleep(std::time::Duration::from_millis(10));
         helper.request_redraw();
     }
@@ -126,7 +102,7 @@ impl Audio {
             buffer.extend_from_slice(&samples);
         }
         let length_in_seconds =
-            buffer.len() as f32 / (f32::from(audio_channels) * sample_rate as f32);
+            buffer.len() as f64 / (u32::from(audio_channels) * sample_rate) as f64;
 
         let meta = Meta {
             length: length_in_seconds,
@@ -136,10 +112,35 @@ impl Audio {
         meta.print();
         Self { buffer, meta }
     }
+    pub fn draw(&self, graphics: &mut Graphics2D, segment: usize) {
+        let segment_size = self.meta.sample_rate as usize / 64;
+        let slice = segment_size * segment;
+        let wave: Vec<Vec2> = self
+            .buffer
+            .iter()
+            .skip(slice)
+            .take(segment_size)
+            .enumerate()
+            .map(|(i, sample)| {
+                Vec2::new(
+                    WINDOW_WIDTH as f32 / segment_size as f32 * i as f32,
+                    f32::from(*sample).mul_add(
+                        (WINDOW_HEIGHT as f32 * 0.5) / f32::from(i16::MAX),
+                        WINDOW_HEIGHT as f32 / 2.0,
+                    ),
+                )
+            })
+            .collect();
+
+        for pair in wave.as_slice().windows(2) {
+            let (from, to) = (pair[0], pair[1]);
+            graphics.draw_line(from, to, 2.0, Color::BLACK);
+        }
+    }
 }
 
 struct Meta {
-    length: f32,
+    length: f64,
     channels: u8,
     sample_rate: u32,
 }
