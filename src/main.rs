@@ -1,5 +1,6 @@
 #![warn(clippy::nursery, clippy::pedantic)]
 #![allow(clippy::cast_precision_loss)]
+use anyhow::Result;
 use speedy2d::{
     color::Color,
     dimen::{UVec2, Vec2},
@@ -38,7 +39,7 @@ struct App {
 
 impl App {
     pub fn new(window_size: UVec2) -> Self {
-        let audio = Audio::new();
+        let audio = Audio::from_file("0.ogg").unwrap();
         Self {
             viewport: window_size,
             audio,
@@ -86,21 +87,18 @@ struct Audio {
 }
 
 impl Audio {
-    pub fn new() -> Self {
-        let file_path = "0.ogg";
-        println!("Opening file: {file_path}");
-        let file = File::open(file_path).expect("Can't open file");
-        let mut stream_reader =
-            OggStreamReader::new(file).expect("Can't create oggstreamreader for file.");
-        let sample_rate = stream_reader.ident_hdr.audio_sample_rate;
-        let audio_channels = stream_reader.ident_hdr.audio_channels;
+    pub fn from_file(path: &str) -> Result<Self> {
+        println!("Opening file: {path}");
+        let file = File::open(path)?;
+        let mut stream_reader = OggStreamReader::new(file)?;
+
         let mut buffer = Vec::new();
-        while let Some(samples) = stream_reader
-            .read_dec_packet_itl()
-            .expect("couldn't read ogg packet")
-        {
+        while let Some(samples) = stream_reader.read_dec_packet_itl()? {
             buffer.extend_from_slice(&samples);
         }
+
+        let sample_rate = stream_reader.ident_hdr.audio_sample_rate;
+        let audio_channels = stream_reader.ident_hdr.audio_channels;
         let length_in_seconds =
             buffer.len() as f64 / (u32::from(audio_channels) * sample_rate) as f64;
 
@@ -110,8 +108,9 @@ impl Audio {
             sample_rate,
         };
         meta.print();
-        Self { buffer, meta }
+        Ok(Self { buffer, meta })
     }
+
     pub fn draw(&self, graphics: &mut Graphics2D, segment: usize) {
         let segment_size = self.meta.sample_rate as usize / 64;
         let slice = segment_size * segment;
