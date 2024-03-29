@@ -74,7 +74,12 @@ impl WindowHandler for App {
         if let Some(key_code) = virtual_key_code {
             match key_code {
                 VirtualKeyCode::Escape => helper.terminate_loop(),
-                VirtualKeyCode::Space => self.segment += 1,
+                VirtualKeyCode::Space | VirtualKeyCode::Right => self.segment += 1,
+                VirtualKeyCode::Left => {
+                    if self.segment > 0 {
+                        self.segment -= 1;
+                    }
+                }
                 key => println!("Key: {key:?}, scancode: {scancode}"),
             }
         }
